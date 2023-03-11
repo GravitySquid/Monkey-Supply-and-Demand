@@ -70,7 +70,7 @@ namespace cAlgo
             {
                 var index2 = htfIndex;
                 var index3 = index2 - Periods;
-                Print("HLSeries bars count {0}", HLSeries.Count);
+                //Print("HLSeries bars count {0}", HLSeries.Count);
 
                 bool s = true;
                 bool t = true;
