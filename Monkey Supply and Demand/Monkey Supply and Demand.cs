@@ -43,8 +43,10 @@ namespace cAlgo
         public int ZoneOpacity { get; set; }
 
 
-        private List<SDZone> supplyList = new List<SDZone>();
-        private List<SDZone> demandList = new List<SDZone>();
+        //private List<SDZone> supplyList = new List<SDZone>();
+        //private List<SDZone> demandList = new List<SDZone>();
+        private SortedList<double,SDZone> supplyListSorted = new SortedList<double, SDZone>();
+        private SortedList<double,SDZone> demandListSorted = new SortedList<double, SDZone>();
         private Color AsColor, AdColor;
         private Bars HLSeries, ZoneSeries;
 
@@ -59,14 +61,16 @@ namespace cAlgo
 
         public override void Calculate(int index)
         {
+            // No need to run every chart candle
+            if (!IsLastBar)
+                return;
+
             // Find higher timeframe H/L
-            bool done = false;
-            int htfIndex = 0;
-            while (!done)
+            for (int htfIndex = 2 * Periods; htfIndex < HLSeries.Count - Periods - 2; htfIndex++)
             {
-                htfIndex++;
                 var index2 = htfIndex;
-                var index3 = index2 + Periods;
+                var index3 = index2 - Periods;
+                Print("HLSeries bars count {0}", HLSeries.Count);
 
                 bool s = true;
                 bool t = true;
@@ -74,7 +78,7 @@ namespace cAlgo
                 //SUPPLY - Local Highs
                 for (int i = 1; i < Periods; i++)
                 {
-                    if (s == true && HLSeries.HighPrices.Last(index2 + Periods - i) > HLSeries.HighPrices.Last(index3))
+                    if (s == true && HLSeries.HighPrices[index2 - Periods + i] > HLSeries.HighPrices[index3])
                     {
                         s = false;
                         break;
@@ -82,7 +86,7 @@ namespace cAlgo
                 }
                 for (int i = 1; i < Periods; i++)
                 {
-                    if (s == true && HLSeries.HighPrices.Last(index2 + Periods + i) > HLSeries.HighPrices.Last(index3))
+                    if (s == true && HLSeries.HighPrices[index2 - Periods - i] > HLSeries.HighPrices[index3])
                     {
                         s = false;
                         break;
@@ -91,12 +95,12 @@ namespace cAlgo
                 if (s == true)
                 {
                     // find index on Zone timeframe
-                    int startIndex = ZoneSeries.OpenTimes.GetIndexByTime(HLSeries.OpenTimes.Last(index3));
-                    int endIndex = ZoneSeries.OpenTimes.GetIndexByTime(HLSeries.OpenTimes.Last(index3 - 1));
+                    int startIndex = ZoneSeries.OpenTimes.GetIndexByTime(HLSeries.OpenTimes[index3]);
+                    int endIndex = ZoneSeries.OpenTimes.GetIndexByTime(HLSeries.OpenTimes[index3 + 1]);
                     int zoneIndex = 0;
                     for (int i = startIndex; i < endIndex; i++)
                     {
-                        if (ZoneSeries.HighPrices[i] == HLSeries.HighPrices.Last(index3))
+                        if (ZoneSeries.HighPrices[i] == HLSeries.HighPrices[index3])
                         { zoneIndex = i; break; }
                     }
                     double max = ZoneSeries.HighPrices[zoneIndex];
@@ -112,14 +116,15 @@ namespace cAlgo
                         }
                     }
                     zoneIndex = newZoneIndex;
-                    //supplyList.Add(new SDZone(index3, Bars.HighPrices[index3], min));
-                    supplyList.Add(new SDZone(Bars.OpenTimes.GetIndexByTime(ZoneSeries.OpenTimes[zoneIndex]), max, min));
+                    int idx = Bars.OpenTimes.GetIndexByTime(ZoneSeries.OpenTimes[zoneIndex]);
+                    if (!supplyListSorted.ContainsKey(min))
+                        supplyListSorted.Add(min, new SDZone(idx, max, min));
                 }
 
                 //DEMAND - Lows
                 for (int i = 1; i < Periods; i++)
                 {
-                    if (t == true && HLSeries.LowPrices.Last(index2 + Periods - i) < HLSeries.LowPrices.Last(index3))
+                    if (t == true && HLSeries.LowPrices[index2 - Periods + i] < HLSeries.LowPrices[index3])
                     {
                         t = false;
                         break;
@@ -127,7 +132,7 @@ namespace cAlgo
                 }
                 for (int i = 1; i < Periods; i++)
                 {
-                    if (t == true && HLSeries.LowPrices.Last(index2 + Periods + i) < HLSeries.LowPrices.Last(index3))
+                    if (t == true && HLSeries.LowPrices[index2 - Periods - i] < HLSeries.LowPrices[index3])
                     {
                         t = false;
                         break;
@@ -136,12 +141,12 @@ namespace cAlgo
                 if (t == true)
                 {
                     // find index on Zone timeframe
-                    int startIndex = ZoneSeries.OpenTimes.GetIndexByTime(HLSeries.OpenTimes.Last(index3));
-                    int endIndex = ZoneSeries.OpenTimes.GetIndexByTime(HLSeries.OpenTimes.Last(index3 - 1));
+                    int startIndex = ZoneSeries.OpenTimes.GetIndexByTime(HLSeries.OpenTimes[index3]);
+                    int endIndex = ZoneSeries.OpenTimes.GetIndexByTime(HLSeries.OpenTimes[index3 + 1]);
                     int zoneIndex = 0;
                     for (int i = startIndex; i < endIndex; i++)
                     {
-                        if (ZoneSeries.LowPrices[i] == HLSeries.LowPrices.Last(index3))
+                        if (ZoneSeries.LowPrices[i] == HLSeries.LowPrices[index3])
                         { zoneIndex = i; break; }
                     }
                     double min = ZoneSeries.LowPrices[zoneIndex];
@@ -156,51 +161,32 @@ namespace cAlgo
                         }
                     }
                     zoneIndex = newZoneIndex;
-                    //demandList.Add(new SDZone(index3, max, Bars.LowPrices[index3]));
-                    demandList.Add(new SDZone(Bars.OpenTimes.GetIndexByTime(ZoneSeries.OpenTimes[zoneIndex]), max, min));
+                    int idx = Bars.OpenTimes.GetIndexByTime(ZoneSeries.OpenTimes[zoneIndex]);
+                    if (!demandListSorted.ContainsKey(-1 * max)) 
+                    demandListSorted.Add(-1 * max, new SDZone(idx, max, min));
                 }
-
-                if (demandList.Count >= MaxZones && supplyList.Count >= MaxZones)
-                    done = true;
             }
-
-            if (!IsLastBar)
-                return;
 
             //DRAWING
             int count = 0;
-            foreach (var zone in supplyList)
+            foreach (var zone in supplyListSorted)
             {
-                if (zone.low > Symbol.Ask)
+                if (zone.Value.low > Symbol.Ask)
                 {
                     count++;
-                    Chart.DrawRectangle("supply" + zone.index + " " + count, zone.index, zone.high, index, zone.low, AsColor, 1).IsFilled = true;
+                    Chart.DrawRectangle("supply" + zone.Value.index + " " + count, zone.Value.index, zone.Value.high, index, zone.Value.low, AsColor, 1).IsFilled = true;
                 }
-                //for (int i = zone.index; i < index; i++)
-                //{
-                //    if (Bars.HighPrices[i] > zone.high)
-                //    {
-                //        Chart.DrawRectangle("supply" + zone.index + " " + i, zone.index, zone.high, i, zone.low, AsColor, 1).IsFilled = true;
-                //        break;
-                //    }
-                //}
+                if (count >= MaxZones) break;
             }
             count = 0;
-            foreach (var zone in demandList)
+            foreach (var zone in demandListSorted)
             {
-                if (zone.high < Symbol.Ask)
+                if (zone.Value.high < Symbol.Ask)
                 {
                     count++;
-                    Chart.DrawRectangle("demand" + zone.index + " " + count, zone.index, zone.low, index, zone.high, AdColor, 1).IsFilled = true;
+                    Chart.DrawRectangle("demand" + zone.Value.index + " " + count, zone.Value.index, zone.Value.low, index, zone.Value.high, AdColor, 1).IsFilled = true;
                 }
-                //for (int i = zone.index; i < index; i++)
-                //{
-                //    if (Bars.LowPrices[i] < zone.low)
-                //    {
-                //        Chart.DrawRectangle("demand" + zone.index + " " + i, zone.index, zone.low, i, zone.high, AdColor, 1).IsFilled = true;
-                //        break;
-                //    }
-                //}
+                if (count >= MaxZones) break;
             }
         }
     }
