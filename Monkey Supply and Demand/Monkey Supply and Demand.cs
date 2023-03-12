@@ -9,7 +9,7 @@
 // ==========================================================
 // 05/07/2022 JBannerman    Clone from cTrader forum & modify
 // 08/03/2023 JBannerman    Attempt to salvage.
-//
+// 11/03/2023 JBannerman    Sort zones by price. Load more histrical bars.
 //
 
 using cAlgo.API;
@@ -26,6 +26,9 @@ namespace cAlgo
 
         [Parameter("Higher Timeframe for H/Ls", DefaultValue = "h4")]
         public TimeFrame HighLowTimeframe { get; set; }
+
+        [Parameter("Historical Bars to Load", DefaultValue = 1000, Step = 1000)]
+        public int PreferredNumHistoricalBars { get; set; }
 
         [Parameter("Lower Timeframe for Zone refining", DefaultValue = "m15")]
         public TimeFrame ZoneTimeframe { get; set; }
@@ -49,14 +52,26 @@ namespace cAlgo
         private SortedList<double,SDZone> demandListSorted = new SortedList<double, SDZone>();
         private Color AsColor, AdColor;
         private Bars HLSeries, ZoneSeries;
-
+        private int ExtraBarsHL = 0, ExtraBarsZ = 0;
 
         protected override void Initialize()
         {
             AsColor = Color.FromArgb((int)(255 * 0.01 * ZoneOpacity), Color.FromName(SupplyZoneColor).R, Color.FromName(SupplyZoneColor).G, Color.FromName(SupplyZoneColor).B);
             AdColor = Color.FromArgb((int)(255 * 0.01 * ZoneOpacity), Color.FromName(DemandZoneColor).R, Color.FromName(DemandZoneColor).G, Color.FromName(DemandZoneColor).B);
+            InitializeDataSeries();
+        }
+
+        private void InitializeDataSeries()
+        {
+            ExtraBarsHL = 0;
+            ExtraBarsZ = 0;
             HLSeries = MarketData.GetBars(HighLowTimeframe);
             ZoneSeries = MarketData.GetBars(ZoneTimeframe);
+            while (HLSeries.Count + ExtraBarsHL < PreferredNumHistoricalBars || ZoneSeries.Count + ExtraBarsZ < PreferredNumHistoricalBars)
+            {
+                ExtraBarsHL += HLSeries.LoadMoreHistory();
+                ExtraBarsZ += ZoneSeries.LoadMoreHistory();
+            }
         }
 
         public override void Calculate(int index)
@@ -65,12 +80,12 @@ namespace cAlgo
             if (!IsLastBar)
                 return;
 
+            InitializeDataSeries();
             // Find higher timeframe H/L
-            for (int htfIndex = 2 * Periods; htfIndex < HLSeries.Count - Periods - 2; htfIndex++)
+            for (int htfIndex = 2 * Periods; htfIndex < HLSeries.Count + ExtraBarsHL - Periods - 2; htfIndex++)
             {
                 var index2 = htfIndex;
                 var index3 = index2 - Periods;
-                //Print("HLSeries bars count {0}", HLSeries.Count);
 
                 bool s = true;
                 bool t = true;
