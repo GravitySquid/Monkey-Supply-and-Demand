@@ -48,8 +48,8 @@ namespace cAlgo
 
         //private List<SDZone> supplyList = new List<SDZone>();
         //private List<SDZone> demandList = new List<SDZone>();
-        private SortedList<double,SDZone> supplyListSorted = new SortedList<double, SDZone>();
-        private SortedList<double,SDZone> demandListSorted = new SortedList<double, SDZone>();
+        private SortedList<double, SDZone> supplyListSorted = new SortedList<double, SDZone>();
+        private SortedList<double, SDZone> demandListSorted = new SortedList<double, SDZone>();
         private Color AsColor, AdColor;
         private Bars HLSeries, ZoneSeries;
         private int ExtraBarsHL = 0, ExtraBarsZ = 0;
@@ -177,10 +177,19 @@ namespace cAlgo
                     }
                     zoneIndex = newZoneIndex;
                     int idx = Bars.OpenTimes.GetIndexByTime(ZoneSeries.OpenTimes[zoneIndex]);
-                    if (!demandListSorted.ContainsKey(-1 * max)) 
-                    demandListSorted.Add(-1 * max, new SDZone(idx, max, min));
+                    if (!demandListSorted.ContainsKey(-1 * max))
+                        demandListSorted.Add(-1 * max, new SDZone(idx, max, min));
                 }
             }
+
+            //REMOVE OLD DRAWINGS
+            var objs = Chart.FindAllObjects(ChartObjectType.Rectangle);
+            if (objs != null)
+                for (int i = 0; i < objs.Length; i++)
+                {
+                    if (objs[i].Name.Contains("supply") || objs[i].Name.Contains("demand"))
+                        Chart.RemoveObject(objs[i].Name);
+                }
 
             //DRAWING
             int count = 0;
